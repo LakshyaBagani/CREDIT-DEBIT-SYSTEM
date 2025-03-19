@@ -538,7 +538,7 @@ function MainPage() {
       {/* Transactions Modal */}
       {showTransactions && (
         <div className="fixed inset-0 bg-opacity-50 flex justify-center items-center">
-          <div className="bg-white w-[400px] h-[90vh] p-8 rounded-xl shadow-2xl relative flex flex-col">
+          <div className="bg-white w-[400px] h-[100vh] p-8 rounded-xl shadow-2xl relative flex flex-col">
             <button
               className="absolute top-4 right-4 text-3xl text-gray-600 hover:text-gray-800"
               onClick={() => setShowTransactions(false)}
