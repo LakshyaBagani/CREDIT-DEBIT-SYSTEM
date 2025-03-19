@@ -422,56 +422,66 @@ function MainPage() {
 
       {/* Filter Modal */}
       {filter && (
-  <div className="fixed inset-0 flex items-center justify-center bg-opacity-50">
-    <div className="bg-white p-6 rounded-lg shadow-lg w-full max-h-[100vh] flex flex-col relative">
-      {/* Close Button */}
-      <button
-        onClick={HandleFilterCorss}
-        className="absolute top-4 right-4 text-gray-600 hover:text-gray-800 text-xl"
-      >
-        <MdCancel />
-      </button>
-
-      {/* Modal Title */}
-      <h2 className="text-2xl font-semibold mb-4">Filter by Location</h2>
-
-      {/* Checkbox List */}
-      <div className="flex-1 overflow-y-auto mb-4">
-        <div className="flex flex-col space-y-1"> {/* Reduced spacing between checkboxes */}
-          {["Sausar", "Boargaon", "Lodhikheda", "Satnoor", "Pipla", "Mohgaon", "Pamdrakhedhi"].map((place) => (
-            <label
-              key={place}
-              className="flex items-center space-x-2 cursor-pointer p-1 rounded-lg hover:bg-gray-100"
+        <div className="fixed inset-0 flex items-center justify-center bg-opacity-50">
+          <div className="bg-white p-6 rounded-lg shadow-lg w-full max-h-[100vh] flex flex-col relative">
+            {/* Close Button */}
+            <button
+              onClick={HandleFilterCorss}
+              className="absolute top-4 right-4 text-gray-600 hover:text-gray-800 text-xl"
             >
-              <input
-                type="checkbox"
-                value={place}
-                checked={selectedOption.includes(place)}
-                onChange={(e) => {
-                  if (e.target.checked) {
-                    setSelectedOption([...selectedOption, place]);
-                  } else {
-                    setSelectedOption(selectedOption.filter((opt) => opt !== place));
-                  }
-                }}
-                className="accent-blue-500"
-              />
-              <span className="text-lg text-gray-700">{place}</span>
-            </label>
-          ))}
-        </div>
-      </div>
+              <MdCancel />
+            </button>
 
-      {/* Apply Button */}
-      <button
-        onClick={HandleFilterFunction}
-        className="w-full bg-blue-500 text-white py-2 rounded-lg text-lg hover:bg-blue-600"
-      >
-        Apply
-      </button>
-    </div>
-  </div>
-)}
+            {/* Modal Title */}
+            <h2 className="text-2xl font-semibold mb-4">Filter by Location</h2>
+            <div className="flex-1 overflow-y-auto mb-4">
+              <div className="flex flex-col space-y-1">
+                {" "}
+                {/* Reduced spacing between checkboxes */}
+                {[
+                  "Sausar",
+                  "Boargaon",
+                  "Lodhikheda",
+                  "Satnoor",
+                  "Pipla",
+                  "Mohgaon",
+                  "Pamdrakhedhi",
+                ].map((place) => (
+                  <label
+                    key={place}
+                    className="flex items-center space-x-2 cursor-pointer p-1 rounded-lg hover:bg-gray-100"
+                  >
+                    <input
+                      type="checkbox"
+                      value={place}
+                      checked={selectedOption.includes(place)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedOption([...selectedOption, place]);
+                        } else {
+                          setSelectedOption(
+                            selectedOption.filter((opt) => opt !== place)
+                          );
+                        }
+                      }}
+                      className="accent-blue-500"
+                    />
+                    <span className="text-lg text-gray-700">{place}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* Apply Button */}
+            <button
+              onClick={HandleFilterFunction}
+              className="w-full bg-blue-500 text-white py-2 rounded-lg text-lg hover:bg-blue-600"
+            >
+              Apply
+            </button>
+          </div>
+        </div>
+      )}
       {/* Add Customer Modal */}
       {addCustomer && (
         <div className="fixed inset-0 bg-opacity-50 flex justify-center items-center">
@@ -528,7 +538,7 @@ function MainPage() {
       {/* Transactions Modal */}
       {showTransactions && (
         <div className="fixed inset-0 bg-opacity-50 flex justify-center items-center">
-          <div className="bg-white w-[400px] h-[100vh] p-8 rounded-xl shadow-2xl relative flex flex-col">
+          <div className="bg-white w-[400px] h-[90vh] p-8 rounded-xl shadow-2xl relative flex flex-col">
             <button
               className="absolute top-4 right-4 text-3xl text-gray-600 hover:text-gray-800"
               onClick={() => setShowTransactions(false)}
