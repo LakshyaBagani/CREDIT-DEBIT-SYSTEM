@@ -2,15 +2,13 @@ import React, { useState, useEffect } from "react";
 import { MdCancel } from "react-icons/md";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import { CiSearch } from "react-icons/ci";
-import { CiFilter } from "react-icons/ci";
+import { CiSearch, CiFilter } from "react-icons/ci";
 import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
 import { db } from "./Database";
 
 function MainPage() {
   const [addCustomer, setAddCustomer] = useState(false);
   const [customerName, setCustomerName] = useState("");
-  const [customerNumber, setCustomerNumber] = useState("");
   const [customerAddress, setCustomerAddress] = useState("");
   const [customerPendingAmount, setCustomerPendingAmount] = useState("");
   const [activeTab, setActiveTab] = useState("customers");
@@ -19,33 +17,46 @@ function MainPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filteredCustomers, setFilteredCustomers] = useState([]);
   const [customers, setCustomers] = useState([]);
+  const [creditDebitAmount, setCreditDebitAmount] = useState("");
+  const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [showTransactions, setShowTransactions] = useState(false);
+  const [customerTransactions, setCustomerTransactions] = useState([]);
 
+  // Fetch customers from Firestore on component mount
   useEffect(() => {
     const fetchCustomers = async () => {
-      const customersDocRef = doc(db, "Customers", "allCustomers");
-      const docSnap = await getDoc(customersDocRef);
+      try {
+        const customersDocRef = doc(db, "Customers", "allCustomers");
+        const docSnap = await getDoc(customersDocRef);
 
-      if (docSnap.exists()) {
-        setCustomers(docSnap.data().customers);
+        if (docSnap.exists()) {
+          const customersData = docSnap.data().customers || [];
+          setCustomers(customersData);
+          setFilteredCustomers(customersData);
+        } else {
+          setCustomers([]);
+          setFilteredCustomers([]);
+        }
+      } catch (error) {
+        toast.error("Error fetching customers: " + error.message);
+        setCustomers([]);
+        setFilteredCustomers([]);
       }
     };
 
     fetchCustomers();
   }, []);
 
-  const HandleCrossFilter = () => {
-    setFilter(false);
-    setSelectedOption([]);
-  };
-
+  // Handle adding a new customer
   const HandleAddCustomers = async (e) => {
     e.preventDefault();
+    setAddCustomer(false);
 
     const newCustomer = {
       name: customerName,
-      number: customerNumber,
       address: customerAddress,
       pendingAmount: customerPendingAmount,
+      transactions: [],
     };
 
     try {
@@ -69,22 +80,174 @@ function MainPage() {
         pauseOnHover: false,
       });
 
-      setAddCustomer(false);
       setCustomerName("");
-      setCustomerNumber("");
       setCustomerAddress("");
       setCustomerPendingAmount("");
+
+      const updatedDocSnap = await getDoc(customersDocRef);
+      if (updatedDocSnap.exists()) {
+        setCustomers(updatedDocSnap.data().customers);
+        setFilteredCustomers(updatedDocSnap.data().customers);
+      }
     } catch (error) {
       toast.error("Error adding customer: " + error.message);
     }
   };
 
-  const HandleCrossButton = () => {
+  const HandleAddCustomerCross = () => {
     setAddCustomer(false);
     setCustomerName("");
-    setCustomerNumber("");
     setCustomerAddress("");
     setCustomerPendingAmount("");
+  };
+
+  const fetchCustomerTransactions = async (customerName) => {
+    const customersDocRef = doc(db, "Customers", "allCustomers");
+    const docSnap = await getDoc(customersDocRef);
+
+    if (docSnap.exists()) {
+      const customers = docSnap.data().customers;
+      const customer = customers.find((c) => c.name === customerName);
+      return customer ? customer.transactions : [];
+    }
+    return [];
+  };
+
+  const HandleCredit = async (e) => {
+    e.preventDefault();
+    setShowTransactions(false);
+
+    if (!selectedCustomer || !creditDebitAmount) {
+      toast.error("Please select a customer and enter an amount.");
+      return;
+    }
+
+    try {
+      const amount = parseFloat(selectedCustomer.pendingAmount);
+      const creditAmount = parseFloat(creditDebitAmount);
+      const newAmount = amount + creditAmount;
+
+      const timestamp = Date.now();
+      const currentDate = new Date(timestamp);
+      const day = String(currentDate.getDate()).padStart(2, "0");
+      const month = String(currentDate.getMonth() + 1).padStart(2, "0");
+      const year = currentDate.getFullYear();
+      const date = `${day}/${month}/${year}`;
+
+      const newTransaction = {
+        type: "credit",
+        amount: creditDebitAmount,
+        date: date,
+      };
+
+      const updatedCustomers = customers.map((customer) =>
+        customer.name === selectedCustomer.name
+          ? {
+              ...customer,
+              pendingAmount: newAmount.toString(),
+              transactions: [...customer.transactions, newTransaction],
+            }
+          : customer
+      );
+
+      const customersDocRef = doc(db, "Customers", "allCustomers");
+      await updateDoc(customersDocRef, {
+        customers: updatedCustomers,
+      });
+
+      setCustomers(updatedCustomers);
+      setFilteredCustomers(updatedCustomers);
+
+      toast.success(`Updated pending amount for ${selectedCustomer.name}`, {
+        position: "top-right",
+        autoClose: 3000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: false,
+      });
+
+      setCreditDebitAmount("");
+      setSelectedCustomer(null);
+    } catch (error) {
+      toast.error("Error updating customer: " + error.message);
+    }
+  };
+
+  const HandleDebit = async (e) => {
+    e.preventDefault();
+    setShowTransactions(false);
+
+    if (!selectedCustomer || !creditDebitAmount) {
+      toast.error("Please select a customer and enter an amount.");
+      return;
+    }
+
+    try {
+      const amount = parseFloat(selectedCustomer.pendingAmount);
+      const debitAmount = parseFloat(creditDebitAmount);
+      const newAmount = amount - debitAmount;
+
+      const timestamp = Date.now();
+      const currentDate = new Date(timestamp);
+      const day = String(currentDate.getDate()).padStart(2, "0");
+      const month = String(currentDate.getMonth() + 1).padStart(2, "0");
+      const year = currentDate.getFullYear();
+      const date = `${day}/${month}/${year}`;
+
+      const newTransaction = {
+        type: "debit",
+        amount: creditDebitAmount,
+        date: date,
+      };
+
+      const updatedCustomers = customers.map((customer) =>
+        customer.name === selectedCustomer.name
+          ? {
+              ...customer,
+              pendingAmount: newAmount.toString(),
+              transactions: [...customer.transactions, newTransaction],
+            }
+          : customer
+      );
+
+      const customersDocRef = doc(db, "Customers", "allCustomers");
+      await updateDoc(customersDocRef, {
+        customers: updatedCustomers,
+      });
+
+      setCustomers(updatedCustomers);
+      setFilteredCustomers(updatedCustomers);
+
+      toast.success(`Updated pending amount for ${selectedCustomer.name}`, {
+        position: "top-right",
+        autoClose: 3000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: false,
+      });
+
+      setCreditDebitAmount("");
+      setSelectedCustomer(null);
+    } catch (error) {
+      toast.error("Error updating customer: " + error.message);
+    }
+  };
+
+  const HandleSearch = (e) => {
+    const query = e.target.value;
+    setSearchQuery(query);
+    let filtered = customers;
+    if (selectedOption.length > 0) {
+      filtered = filtered.filter((customer) =>
+        selectedOption.includes(customer.address)
+      );
+    }
+    if (query !== "") {
+      filtered = filtered.filter((customer) =>
+        customer.name.toLowerCase().includes(query.toLowerCase())
+      );
+    }
+    setFilteredCustomers(filtered);
   };
 
   const HandleFilterFunction = (e) => {
@@ -122,29 +285,12 @@ function MainPage() {
         pauseOnHover: false,
       });
     }
-
     setFilter(false);
   };
 
-  const HandleSearch = (e) => {
-    const query = e.target.value;
-    setSearchQuery(query);
-
-    let filtered = customers;
-
-    if (selectedOption.length > 0) {
-      filtered = filtered.filter((customer) =>
-        selectedOption.includes(customer.address)
-      );
-    }
-
-    if (query !== "") {
-      filtered = filtered.filter((customer) =>
-        customer.name.toLowerCase().includes(query.toLowerCase())
-      );
-    }
-
-    setFilteredCustomers(filtered);
+  const HandleFilterCorss = () => {
+    setFilter(false);
+    setSelectedOption([]);
   };
 
   return (
@@ -153,6 +299,7 @@ function MainPage() {
         <h1 className="text-2xl font-bold text-center">GIRIRAJ AGENCY</h1>
         <ToastContainer />
 
+        {/* Tabs for Customers and Suppliers */}
         <div className="mt-4">
           <div className="flex space-x-10 border-b border-gray-300">
             <button
@@ -180,6 +327,7 @@ function MainPage() {
           </div>
         </div>
 
+        {/* Cards for Supplier and Customer Amounts */}
         <div className="grid grid-cols-2 gap-4 mt-6 text-center">
           <div className="bg-white p-4 rounded-lg shadow">
             <h2 className="text-lg font-semibold">
@@ -195,6 +343,7 @@ function MainPage() {
           </div>
         </div>
 
+        {/* Search and Filter Section */}
         <div className="relative mt-6 flex items-center">
           <div className="relative w-full">
             <CiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-xl" />
@@ -215,23 +364,42 @@ function MainPage() {
           </div>
         </div>
 
+        {/* Customer List */}
         <div className="mt-6">
           <h2 className="text-xl font-semibold mb-2">Customer List</h2>
           <div className="bg-white p-4 rounded-lg shadow">
-            {(filteredCustomers.length > 0 || searchQuery || selectedOption.length > 0
+            {(filteredCustomers.length > 0 ||
+            searchQuery ||
+            selectedOption.length > 0
               ? filteredCustomers
               : customers
             ).length > 0 ? (
               <ul className="space-y-2">
-                {(filteredCustomers.length > 0 || searchQuery || selectedOption.length > 0
+                {(filteredCustomers.length > 0 ||
+                searchQuery ||
+                selectedOption.length > 0
                   ? filteredCustomers
                   : customers
                 ).map((customer, index) => (
-                  <li key={index} className="border-b pb-2">
-                    <p className="font-semibold">{customer.name}</p>
-                    <p className="text-gray-600">{customer.number}</p>
-                    <p className="text-gray-600">{customer.address}</p>
-                    <p className="text-red-600">Pending: ₹{customer.pendingAmount}</p>
+                  <li
+                    key={index}
+                    className="border-b pb-2 cursor-pointer"
+                    onClick={async () => {
+                      setSelectedCustomer(customer);
+                      const transactions = await fetchCustomerTransactions(
+                        customer.name
+                      );
+                      setCustomerTransactions(transactions);
+                      setShowTransactions(true);
+                    }}
+                  >
+                    <p className="font-semibold">Customer : {customer.name}</p>
+                    <p className="text-gray-600">
+                      Address : {customer.address}
+                    </p>
+                    <p className="text-red-600">
+                      Pending: ₹{customer.pendingAmount}
+                    </p>
                   </li>
                 ))}
               </ul>
@@ -242,6 +410,7 @@ function MainPage() {
         </div>
       </div>
 
+      {/* Add Customer Button */}
       <div>
         <button
           className="fixed bottom-6 right-6 bg-blue-500 text-white px-4 py-2 rounded-full shadow-lg hover:bg-blue-600"
@@ -251,52 +420,59 @@ function MainPage() {
         </button>
       </div>
 
+      {/* Filter Modal */}
       {filter && (
-        <div className="fixed inset-0 flex items-center justify-center bg-opacity-50">
-          <div className="bg-white p-6 rounded-lg shadow-lg w-[340px] h-[400px] relative">
-            <button
-              onClick={HandleCrossFilter}
-              className="absolute top-4 right-4 text-gray-600 hover:text-gray-800 text-xl"
+  <div className="fixed inset-0 flex items-center justify-center bg-opacity-50">
+    <div className="bg-white p-6 rounded-lg shadow-lg w-full max-h-[100vh] flex flex-col relative">
+      {/* Close Button */}
+      <button
+        onClick={HandleFilterCorss}
+        className="absolute top-4 right-4 text-gray-600 hover:text-gray-800 text-xl"
+      >
+        <MdCancel />
+      </button>
+
+      {/* Modal Title */}
+      <h2 className="text-2xl font-semibold mb-4">Filter by Location</h2>
+
+      {/* Checkbox List */}
+      <div className="flex-1 overflow-y-auto mb-4">
+        <div className="flex flex-col space-y-1"> {/* Reduced spacing between checkboxes */}
+          {["Sausar", "Boargaon", "Lodhikheda", "Satnoor", "Pipla", "Mohgaon", "Pamdrakhedhi"].map((place) => (
+            <label
+              key={place}
+              className="flex items-center space-x-2 cursor-pointer p-1 rounded-lg hover:bg-gray-100"
             >
-              <MdCancel />
-            </button>
-
-            <h2 className="text-2xl font-semibold mb-6">Filter by Location</h2>
-
-            <div className="flex flex-col space-y-4">
-              {["Sausar", "Boargaon", "Lodhikheda", "Satnoor"].map((place) => (
-                <label
-                  key={place}
-                  className="flex items-center space-x-2 cursor-pointer p-2 rounded-lg hover:bg-gray-100"
-                >
-                  <input
-                    type="checkbox"
-                    value={place}
-                    checked={selectedOption.includes(place)}
-                    onChange={(e) => {
-                      if (e.target.checked) {
-                        setSelectedOption([...selectedOption, place]);
-                      } else {
-                        setSelectedOption(selectedOption.filter((opt) => opt !== place));
-                      }
-                    }}
-                    className="accent-blue-500"
-                  />
-                  <span className="text-lg text-gray-700">{place}</span>
-                </label>
-              ))}
-            </div>
-
-            <button
-              onClick={HandleFilterFunction}
-              className="w-full mt-6 bg-blue-500 text-white py-2 rounded-lg text-lg hover:bg-blue-600"
-            >
-              Apply
-            </button>
-          </div>
+              <input
+                type="checkbox"
+                value={place}
+                checked={selectedOption.includes(place)}
+                onChange={(e) => {
+                  if (e.target.checked) {
+                    setSelectedOption([...selectedOption, place]);
+                  } else {
+                    setSelectedOption(selectedOption.filter((opt) => opt !== place));
+                  }
+                }}
+                className="accent-blue-500"
+              />
+              <span className="text-lg text-gray-700">{place}</span>
+            </label>
+          ))}
         </div>
-      )}
+      </div>
 
+      {/* Apply Button */}
+      <button
+        onClick={HandleFilterFunction}
+        className="w-full bg-blue-500 text-white py-2 rounded-lg text-lg hover:bg-blue-600"
+      >
+        Apply
+      </button>
+    </div>
+  </div>
+)}
+      {/* Add Customer Modal */}
       {addCustomer && (
         <div className="fixed inset-0 bg-opacity-50 flex justify-center items-center">
           <form
@@ -305,7 +481,7 @@ function MainPage() {
           >
             <button
               className="absolute top-4 right-4 text-3xl text-gray-600 hover:text-gray-800"
-              onClick={HandleCrossButton}
+              onClick={HandleAddCustomerCross}
               type="button"
             >
               <MdCancel />
@@ -320,17 +496,6 @@ function MainPage() {
               className="w-full p-3 border rounded-lg"
             />
             <h2 className="text-xl font-semibold mt-4 mb-2">
-              Customer Phone Number
-            </h2>
-            <input
-              required
-              type="number"
-              placeholder="Enter customer number"
-              value={customerNumber}
-              onChange={(e) => setCustomerNumber(e.target.value)}
-              className="w-full p-3 border rounded-lg"
-            />
-            <h2 className="text-xl font-semibold mt-4 mb-2">
               Customer Address
             </h2>
             <input
@@ -341,9 +506,7 @@ function MainPage() {
               onChange={(e) => setCustomerAddress(e.target.value)}
               className="w-full p-3 border rounded-lg"
             />
-            <h2 className="text-xl font-semibold mt-4 mb-2">
-              Pending amount
-            </h2>
+            <h2 className="text-xl font-semibold mt-4 mb-2">Pending amount</h2>
             <input
               required
               type="number"
@@ -359,6 +522,64 @@ function MainPage() {
               Add Customer
             </button>
           </form>
+        </div>
+      )}
+
+      {/* Transactions Modal */}
+      {showTransactions && (
+        <div className="fixed inset-0 bg-opacity-50 flex justify-center items-center">
+          <div className="bg-white w-[400px] h-[100vh] p-8 rounded-xl shadow-2xl relative flex flex-col">
+            <button
+              className="absolute top-4 right-4 text-3xl text-gray-600 hover:text-gray-800"
+              onClick={() => setShowTransactions(false)}
+              type="button"
+            >
+              <MdCancel />
+            </button>
+            <h1 className="text-xl font-semibold mb-4">
+              Transactions for {selectedCustomer?.name}
+            </h1>
+            <p className="text-xl font-semibold mb-4">
+              Pending Amount: ₹{selectedCustomer?.pendingAmount}
+            </p>
+            <input
+              required
+              type="number"
+              placeholder="Enter amount"
+              value={creditDebitAmount}
+              onChange={(e) => setCreditDebitAmount(e.target.value)}
+              className="w-full p-3 border rounded-lg mb-4"
+            />
+            <div className="flex-1 overflow-y-auto mb-4">
+              <ul className="space-y-2">
+                {customerTransactions.map((transaction, index) => (
+                  <li key={index} className="border-b pb-2">
+                    <p className="font-semibold">
+                      {transaction.type.toUpperCase()}
+                    </p>
+                    <p className="text-gray-600">
+                      Amount: ₹{transaction.amount}
+                    </p>
+                    <p className="text-gray-600">Date: {transaction.date}</p>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="flex space-x-4">
+              <button
+                className="w-full bg-green-500 text-white py-2 rounded-lg text-lg hover:bg-green-600"
+                onClick={HandleCredit}
+              >
+                CREDIT
+              </button>
+              <button
+                className="w-full bg-red-500 text-white py-2 rounded-lg text-lg hover:bg-red-600"
+                onClick={HandleDebit}
+              >
+                DEBIT
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
