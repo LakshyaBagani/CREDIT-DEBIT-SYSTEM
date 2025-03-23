@@ -21,8 +21,10 @@ function MainPage() {
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [showTransactions, setShowTransactions] = useState(false);
   const [customerTransactions, setCustomerTransactions] = useState([]);
+  const [supplier, setSupplier] = useState(false);
+  const [amountFromCustomers, setAmountFromCustomers] = useState(0);
 
-  // Fetch customers from Firestore on component mount
+  // Fetch customers from Firestore
   useEffect(() => {
     const fetchCustomers = async () => {
       try {
@@ -47,16 +49,36 @@ function MainPage() {
     fetchCustomers();
   }, []);
 
-  // Handle adding a new customer
+  // Calculate total pending amount whenever customers change
+  useEffect(() => {
+    const totalPendingAmount = customers.reduce((sum, customer) => {
+      return sum + parseFloat(customer.pendingAmount || 0);
+    }, 0);
+    setAmountFromCustomers(totalPendingAmount);
+  }, [customers]);
+
   const HandleAddCustomers = async (e) => {
     e.preventDefault();
     setAddCustomer(false);
+
+    const timestamp = Date.now();
+    const currentDate = new Date(timestamp);
+    const day = String(currentDate.getDate()).padStart(2, "0");
+    const month = String(currentDate.getMonth() + 1).padStart(2, "0");
+    const year = currentDate.getFullYear();
+    const date = `${day}/${month}/${year}`;
 
     const newCustomer = {
       name: customerName,
       address: customerAddress,
       pendingAmount: customerPendingAmount,
-      transactions: [],
+      transactions: [
+        {
+          type: "credit",
+          amount: customerPendingAmount,
+          date: date,
+        },
+      ],
     };
 
     try {
@@ -93,7 +115,6 @@ function MainPage() {
       toast.error("Error adding customer: " + error.message);
     }
   };
-
   const HandleAddCustomerCross = () => {
     setAddCustomer(false);
     setCustomerName("");
@@ -288,7 +309,7 @@ function MainPage() {
     setFilter(false);
   };
 
-  const HandleFilterCorss = () => {
+  const HandleFilterCross = () => {
     setFilter(false);
     setSelectedOption([]);
   };
@@ -306,7 +327,10 @@ function MainPage() {
               className={`pb-2 text-lg font-semibold relative ${
                 activeTab === "customers" ? "text-black" : "text-gray-500"
               }`}
-              onClick={() => setActiveTab("customers")}
+              onClick={() => {
+                setActiveTab("customers");
+                setSupplier(false);
+              }}
             >
               Customers
               {activeTab === "customers" && (
@@ -317,7 +341,10 @@ function MainPage() {
               className={`pb-2 text-lg font-semibold relative ${
                 activeTab === "suppliers" ? "text-black" : "text-gray-500"
               }`}
-              onClick={() => setActiveTab("suppliers")}
+              onClick={() => {
+                setActiveTab("suppliers");
+                setSupplier(true);
+              }}
             >
               Suppliers
               {activeTab === "suppliers" && (
@@ -339,11 +366,12 @@ function MainPage() {
             <h2 className="text-lg font-semibold">
               You Will Get From The Customer
             </h2>
-            <h2 className="text-xl font-bold text-green-600">1000</h2>
+            <h2 className="text-xl font-bold text-green-600">
+              {amountFromCustomers}
+            </h2>
           </div>
         </div>
 
-        {/* Search and Filter Section */}
         <div className="relative mt-6 flex items-center">
           <div className="relative w-full">
             <CiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-xl" />
@@ -365,233 +393,278 @@ function MainPage() {
         </div>
 
         {/* Customer List */}
-        <div className="mt-6">
-          <h2 className="text-xl font-semibold mb-2">Customer List</h2>
-          <div className="bg-white p-4 rounded-lg shadow">
-            {(filteredCustomers.length > 0 ||
-            searchQuery ||
-            selectedOption.length > 0
-              ? filteredCustomers
-              : customers
-            ).length > 0 ? (
-              <ul className="space-y-2">
-                {(filteredCustomers.length > 0 ||
-                searchQuery ||
-                selectedOption.length > 0
-                  ? filteredCustomers
-                  : customers
-                ).map((customer, index) => (
-                  <li
-                    key={index}
-                    className="border-b pb-2 cursor-pointer"
-                    onClick={async () => {
-                      setSelectedCustomer(customer);
-                      const transactions = await fetchCustomerTransactions(
-                        customer.name
-                      );
-                      setCustomerTransactions(transactions);
-                      setShowTransactions(true);
-                    }}
-                  >
-                    <p className="font-semibold">Customer : {customer.name}</p>
-                    <p className="text-gray-600">
-                      Address : {customer.address}
-                    </p>
-                    <p className="text-red-600">
-                      Pending: ₹{customer.pendingAmount}
-                    </p>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-gray-500">No customers found.</p>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Add Customer Button */}
-      <div>
-        <button
-          className="fixed bottom-6 right-6 bg-blue-500 text-white px-4 py-2 rounded-full shadow-lg hover:bg-blue-600"
-          onClick={() => setAddCustomer(true)}
-        >
-          Add Customer
-        </button>
-      </div>
-
-      {/* Filter Modal */}
-      {filter && (
-        <div className="fixed inset-0 flex items-center justify-center bg-opacity-50">
-          <div className="bg-white p-6 rounded-lg shadow-lg w-full max-h-[100vh] flex flex-col relative">
-            {/* Close Button */}
-            <button
-              onClick={HandleFilterCorss}
-              className="absolute top-4 right-4 text-gray-600 hover:text-gray-800 text-xl"
-            >
-              <MdCancel />
-            </button>
-
-            {/* Modal Title */}
-            <h2 className="text-2xl font-semibold mb-4">Filter by Location</h2>
-            <div className="flex-1 overflow-y-auto mb-4">
-              <div className="flex flex-col space-y-1">
-                {" "}
-                {/* Reduced spacing between checkboxes */}
-                {[
-                  "Sausar",
-                  "Boargaon",
-                  "Lodhikheda",
-                  "Satnoor",
-                  "Pipla",
-                  "Mohgaon",
-                  "Pamdrakhedhi",
-                ].map((place) => (
-                  <label
-                    key={place}
-                    className="flex items-center space-x-2 cursor-pointer p-1 rounded-lg hover:bg-gray-100"
-                  >
-                    <input
-                      type="checkbox"
-                      value={place}
-                      checked={selectedOption.includes(place)}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setSelectedOption([...selectedOption, place]);
-                        } else {
-                          setSelectedOption(
-                            selectedOption.filter((opt) => opt !== place)
-                          );
-                        }
+        {!supplier && (
+          <div className="mt-6">
+            <h2 className="text-xl font-semibold mb-2">Customer List</h2>
+            <div className="bg-white p-4 rounded-lg shadow">
+              {(filteredCustomers.length > 0 ||
+              searchQuery ||
+              selectedOption.length > 0
+                ? filteredCustomers
+                : customers
+              ).length > 0 ? (
+                <ul className="space-y-2">
+                  {(filteredCustomers.length > 0 ||
+                  searchQuery ||
+                  selectedOption.length > 0
+                    ? filteredCustomers
+                    : customers
+                  ).map((customer, index) => (
+                    <li
+                      key={index}
+                      className="border-b pb-2 cursor-pointer"
+                      onClick={async () => {
+                        setSelectedCustomer(customer);
+                        const transactions = await fetchCustomerTransactions(
+                          customer.name
+                        );
+                        setCustomerTransactions(transactions);
+                        setShowTransactions(true);
                       }}
-                      className="accent-blue-500"
-                    />
-                    <span className="text-lg text-gray-700">{place}</span>
-                  </label>
-                ))}
+                    >
+                      <p className="font-semibold">
+                        Customer : {customer.name}
+                      </p>
+                      <p className="text-gray-600">
+                        Address : {customer.address}
+                      </p>
+                      <p className="text-red-600">
+                        Pending: ₹{customer.pendingAmount}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-gray-500">No customers found.</p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Add Customer Button */}
+        <div>
+          <button
+            className="fixed bottom-6 right-6 bg-blue-500 text-white px-4 py-2 rounded-full shadow-lg hover:bg-blue-600"
+            onClick={() => setAddCustomer(true)}
+          >
+            Add Customer
+          </button>
+        </div>
+
+        {/* Add Customer Modal */}
+        {addCustomer && (
+          <div className="fixed inset-0 bg-opacity-50 flex justify-center items-center">
+            <form
+              onSubmit={HandleAddCustomers}
+              className="bg-white w-[400px] p-8 rounded-xl shadow-2xl relative"
+            >
+              <button
+                className="absolute top-4 right-4 text-3xl text-gray-600 hover:text-gray-800"
+                onClick={HandleAddCustomerCross}
+                type="button"
+              >
+                <MdCancel />
+              </button>
+              <h1 className="text-xl font-semibold mb-4">Customer Name</h1>
+              <input
+                required
+                type="text"
+                placeholder="Enter customer name"
+                value={customerName}
+                onChange={(e) => setCustomerName(e.target.value)}
+                className="w-full p-3 border rounded-lg"
+              />
+              <h2 className="text-xl font-semibold mt-4 mb-2">
+                Customer Address
+              </h2>
+              <input
+                required
+                type="text"
+                placeholder="Enter customer address"
+                value={customerAddress}
+                onChange={(e) => setCustomerAddress(e.target.value)}
+                className="w-full p-3 border rounded-lg"
+              />
+              <h2 className="text-xl font-semibold mt-4 mb-2">
+                Pending amount
+              </h2>
+              <input
+                required
+                type="number"
+                placeholder="Enter customer pending amount"
+                value={customerPendingAmount}
+                onChange={(e) => setCustomerPendingAmount(e.target.value)}
+                className="w-full p-3 border rounded-lg"
+              />
+              <button
+                type="submit"
+                className="w-full bg-blue-500 text-white py-3 mt-6 rounded-lg text-lg hover:bg-blue-600"
+              >
+                Add Customer
+              </button>
+            </form>
+          </div>
+        )}
+
+        {/* Transactions Modal */}
+        {showTransactions && (
+          <div className="fixed inset-0 bg-opacity-50 flex justify-center items-center">
+            <div className="bg-white w-[400px] h-[100vh] p-8 rounded-xl shadow-2xl relative flex flex-col">
+              {/* Close Button */}
+              <button
+                className="absolute top-4 right-4 text-3xl text-gray-600 hover:text-gray-800"
+                onClick={() => setShowTransactions(false)}
+                type="button"
+              >
+                <MdCancel />
+              </button>
+
+              {/* Customer Name and Pending Amount */}
+              <h1 className="text-xl font-semibold mb-4">
+                Transactions for {selectedCustomer?.name}
+              </h1>
+              <p className="text-xl font-semibold mb-4">
+                Pending Amount: ₹{selectedCustomer?.pendingAmount}
+              </p>
+
+              {/* Input for Credit/Debit Amount */}
+              <input
+                required
+                type="number"
+                placeholder="Enter amount"
+                value={creditDebitAmount}
+                onChange={(e) => setCreditDebitAmount(e.target.value)}
+                className="w-full p-3 border rounded-lg mb-4"
+              />
+
+              {/* Buttons for Credit and Debit */}
+              <div className="flex space-x-4 mb-4">
+                <button
+                  className="w-full bg-green-500 text-white py-2 rounded-lg text-lg hover:bg-green-600"
+                  onClick={HandleCredit}
+                >
+                  CREDIT
+                </button>
+                <button
+                  className="w-full bg-red-500 text-white py-2 rounded-lg text-lg hover:bg-red-600"
+                  onClick={HandleDebit}
+                >
+                  DEBIT
+                </button>
+              </div>
+
+              {/* Transaction History */}
+              <div className="flex-1 overflow-y-auto">
+                {/* Credit Transactions */}
+                <div className="mb-6">
+                  <h2 className="text-lg font-semibold mb-2 text-green-600">
+                    Credit Transactions
+                  </h2>
+                  <ul className="space-y-2">
+                    {customerTransactions
+                      .filter((transaction) => transaction.type === "credit")
+                      .map((transaction, index) => (
+                        <li key={index} className="border-b pb-2">
+                          <p className="font-semibold">CREDIT</p>
+                          <p className="text-gray-600">
+                            Amount: ₹{transaction.amount}
+                          </p>
+                          <p className="text-gray-600">
+                            Date: {transaction.date}
+                          </p>
+                        </li>
+                      ))}
+                  </ul>
+                </div>
+
+                {/* Debit Transactions */}
+                <div>
+                  <h2 className="text-lg font-semibold mb-2 text-red-600">
+                    Debit Transactions
+                  </h2>
+                  <ul className="space-y-2">
+                    {customerTransactions
+                      .filter((transaction) => transaction.type === "debit")
+                      .map((transaction, index) => (
+                        <li key={index} className="border-b pb-2">
+                          <p className="font-semibold">DEBIT</p>
+                          <p className="text-gray-600">
+                            Amount: ₹{transaction.amount}
+                          </p>
+                          <p className="text-gray-600">
+                            Date: {transaction.date}
+                          </p>
+                        </li>
+                      ))}
+                  </ul>
+                </div>
               </div>
             </div>
-
-            {/* Apply Button */}
-            <button
-              onClick={HandleFilterFunction}
-              className="w-full bg-blue-500 text-white py-2 rounded-lg text-lg hover:bg-blue-600"
-            >
-              Apply
-            </button>
           </div>
-        </div>
-      )}
-      {/* Add Customer Modal */}
-      {addCustomer && (
-        <div className="fixed inset-0 bg-opacity-50 flex justify-center items-center">
-          <form
-            onSubmit={HandleAddCustomers}
-            className="bg-white w-[400px] p-8 rounded-xl shadow-2xl relative"
-          >
-            <button
-              className="absolute top-4 right-4 text-3xl text-gray-600 hover:text-gray-800"
-              onClick={HandleAddCustomerCross}
-              type="button"
-            >
-              <MdCancel />
-            </button>
-            <h1 className="text-xl font-semibold mb-4">Customer Name</h1>
-            <input
-              required
-              type="text"
-              placeholder="Enter customer name"
-              value={customerName}
-              onChange={(e) => setCustomerName(e.target.value)}
-              className="w-full p-3 border rounded-lg"
-            />
-            <h2 className="text-xl font-semibold mt-4 mb-2">
-              Customer Address
-            </h2>
-            <input
-              required
-              type="text"
-              placeholder="Enter customer address"
-              value={customerAddress}
-              onChange={(e) => setCustomerAddress(e.target.value)}
-              className="w-full p-3 border rounded-lg"
-            />
-            <h2 className="text-xl font-semibold mt-4 mb-2">Pending amount</h2>
-            <input
-              required
-              type="number"
-              placeholder="Enter customer pending amount"
-              value={customerPendingAmount}
-              onChange={(e) => setCustomerPendingAmount(e.target.value)}
-              className="w-full p-3 border rounded-lg"
-            />
-            <button
-              type="submit"
-              className="w-full bg-blue-500 text-white py-3 mt-6 rounded-lg text-lg hover:bg-blue-600"
-            >
-              Add Customer
-            </button>
-          </form>
-        </div>
-      )}
-
-      {/* Transactions Modal */}
-      {showTransactions && (
-        <div className="fixed inset-0 bg-opacity-50 flex justify-center items-center">
-          <div className="bg-white w-[400px] h-[100vh] p-8 rounded-xl shadow-2xl relative flex flex-col">
-            <button
-              className="absolute top-4 right-4 text-3xl text-gray-600 hover:text-gray-800"
-              onClick={() => setShowTransactions(false)}
-              type="button"
-            >
-              <MdCancel />
-            </button>
-            <h1 className="text-xl font-semibold mb-4">
-              Transactions for {selectedCustomer?.name}
-            </h1>
-            <p className="text-xl font-semibold mb-4">
-              Pending Amount: ₹{selectedCustomer?.pendingAmount}
-            </p>
-            <input
-              required
-              type="number"
-              placeholder="Enter amount"
-              value={creditDebitAmount}
-              onChange={(e) => setCreditDebitAmount(e.target.value)}
-              className="w-full p-3 border rounded-lg mb-4"
-            />
-            <div className="flex-1 overflow-y-auto mb-4">
-              <ul className="space-y-2">
-                {customerTransactions.map((transaction, index) => (
-                  <li key={index} className="border-b pb-2">
-                    <p className="font-semibold">
-                      {transaction.type.toUpperCase()}
-                    </p>
-                    <p className="text-gray-600">
-                      Amount: ₹{transaction.amount}
-                    </p>
-                    <p className="text-gray-600">Date: {transaction.date}</p>
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <div className="flex space-x-4">
+        )}
+        {/* Filter Modal */}
+        {filter && (
+          <div className="fixed inset-0 flex items-center justify-center bg-opacity-50">
+            <div className="bg-white p-6 rounded-lg shadow-lg w-full max-h-[100vh] flex flex-col relative">
+              {/* Close Button */}
               <button
-                className="w-full bg-green-500 text-white py-2 rounded-lg text-lg hover:bg-green-600"
-                onClick={HandleCredit}
+                onClick={HandleFilterCross}
+                className="absolute top-4 right-4 text-gray-600 hover:text-gray-800 text-xl"
               >
-                CREDIT
+                <MdCancel />
               </button>
+
+              {/* Modal Title */}
+              <h2 className="text-2xl font-semibold mb-4">
+                Filter by Location
+              </h2>
+              <div className="flex-1 overflow-y-auto mb-4">
+                <div className="flex flex-col space-y-1">
+                  {[
+                    "Sausar",
+                    "Boargaon",
+                    "Lodhikheda",
+                    "Satnoor",
+                    "Pipla",
+                    "Mohgaon",
+                    "Pamdrakhedhi",
+                  ].map((place) => (
+                    <label
+                      key={place}
+                      className="flex items-center space-x-2 cursor-pointer p-1 rounded-lg hover:bg-gray-100"
+                    >
+                      <input
+                        type="checkbox"
+                        value={place}
+                        checked={selectedOption.includes(place)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedOption([...selectedOption, place]);
+                          } else {
+                            setSelectedOption(
+                              selectedOption.filter((opt) => opt !== place)
+                            );
+                          }
+                        }}
+                        className="accent-blue-500"
+                      />
+                      <span className="text-lg text-gray-700">{place}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Apply Button */}
               <button
-                className="w-full bg-red-500 text-white py-2 rounded-lg text-lg hover:bg-red-600"
-                onClick={HandleDebit}
+                onClick={HandleFilterFunction}
+                className="w-full bg-blue-500 text-white py-2 rounded-lg text-lg hover:bg-blue-600"
               >
-                DEBIT
+                Apply
               </button>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
