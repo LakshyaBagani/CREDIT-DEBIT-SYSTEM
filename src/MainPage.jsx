@@ -24,6 +24,7 @@ function MainPage() {
   const [supplier, setSupplier] = useState(false);
   const [amountFromCustomers, setAmountFromCustomers] = useState(0);
   const [amountFromSupplier, setAmountFromSupplier] = useState(0);
+  const [transactionToDelete, setTransactionToDelete] = useState(null);
 
   // Fetch customers from Firestore
   useEffect(() => {
@@ -256,18 +257,20 @@ function MainPage() {
     }
   };
 
-  const deleteTransaction = async (transactionIndex) => {
-    if (!selectedCustomer) return;
+  const confirmDeleteTransaction = (transactionIndex) => {
+    setTransactionToDelete(transactionIndex);
+  };
+
+  const deleteTransaction = async () => {
+    if (!selectedCustomer || transactionToDelete === null) return;
 
     try {
       const updatedCustomers = customers.map((customer) => {
         if (customer.name === selectedCustomer.name) {
-          // Filter out the transaction to be deleted
           const updatedTransactions = customer.transactions.filter(
-            (_, index) => index !== transactionIndex
+            (_, index) => index !== transactionToDelete
           );
 
-          // Recalculate pending amount
           let newPendingAmount = 0;
           updatedTransactions.forEach((transaction) => {
             if (transaction.type === "credit") {
@@ -294,12 +297,12 @@ function MainPage() {
       setCustomers(updatedCustomers);
       setFilteredCustomers(updatedCustomers);
 
-      // Update the selected customer and transactions
       const updatedCustomer = updatedCustomers.find(
         (c) => c.name === selectedCustomer.name
       );
       setSelectedCustomer(updatedCustomer);
       setCustomerTransactions(updatedCustomer.transactions);
+      setTransactionToDelete(null);
 
       toast.success("Transaction deleted successfully", {
         position: "top-right",
@@ -310,7 +313,12 @@ function MainPage() {
       });
     } catch (error) {
       toast.error("Error deleting transaction: " + error.message);
+      setTransactionToDelete(null);
     }
+  };
+
+  const cancelDelete = () => {
+    setTransactionToDelete(null);
   };
 
   const HandleSearch = (e) => {
@@ -420,7 +428,7 @@ function MainPage() {
               You Will Get From The Customer
             </h2>
             <h2 className="text-xl font-bold text-green-600">
-              {amountFromCustomers}
+              ₹{amountFromCustomers.toFixed(2)}
             </h2>
           </div>
           <div className="bg-white p-4 rounded-lg shadow">
@@ -428,7 +436,7 @@ function MainPage() {
               You Have To Give It To Supplier
             </h2>
             <h2 className="text-xl font-bold text-red-600">
-              {amountFromSupplier}
+              ₹{amountFromSupplier.toFixed(2)}
             </h2>
           </div>
         </div>
@@ -513,7 +521,7 @@ function MainPage() {
 
         {/* Add Customer Modal */}
         {addCustomer && (
-          <div className="fixed inset-0 bg-opacity-50 flex justify-center items-center">
+          <div className="fixed inset-0  bg-opacity-50 flex justify-center items-center z-50">
             <form
               onSubmit={HandleAddCustomers}
               className="bg-white w-[400px] p-8 rounded-xl shadow-2xl relative"
@@ -568,7 +576,7 @@ function MainPage() {
 
         {/* Transactions Modal */}
         {showTransactions && (
-          <div className="fixed inset-0 bg-opacity-50 flex justify-center items-center">
+          <div className="fixed inset-0  bg-opacity-50 flex justify-center items-center z-50">
             <div className="bg-white w-[400px] h-[100vh] p-8 rounded-xl shadow-2xl relative flex flex-col">
               {/* Close Button */}
               <button
@@ -619,7 +627,7 @@ function MainPage() {
                         .map((transaction, index) => (
                           <li key={index} className="border-b pb-2 relative">
                             <button
-                              onClick={() => deleteTransaction(index)}
+                              onClick={() => confirmDeleteTransaction(index)}
                               className="absolute right-0 top-0 text-red-500 hover:text-red-700"
                             >
                               <MdDelete />
@@ -639,7 +647,7 @@ function MainPage() {
                   {/* Debit Transactions Column */}
                   <div>
                     <h2 className="text-lg font-semibold mb-2 text-red-600">
-                      Debits Transactions
+                      Debit Transactions
                     </h2>
                     <ul className="space-y-2">
                       {customerTransactions
@@ -647,7 +655,7 @@ function MainPage() {
                         .map((transaction, index) => (
                           <li key={index} className="border-b pb-2 relative">
                             <button
-                              onClick={() => deleteTransaction(index)}
+                              onClick={() => confirmDeleteTransaction(index)}
                               className="absolute right-0 top-0 text-red-500 hover:text-red-700"
                             >
                               <MdDelete />
@@ -669,10 +677,34 @@ function MainPage() {
           </div>
         )}
 
+        {/* Delete Confirmation Modal */}
+        {transactionToDelete !== null && (
+          <div className="fixed inset-0  bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white p-6 rounded-lg shadow-lg max-w-sm w-full">
+              <h2 className="text-xl font-semibold mb-4">Confirm Deletion</h2>
+              <p className="mb-6">Are you sure you want to delete this transaction?</p>
+              <div className="flex justify-end space-x-4">
+                <button
+                  onClick={cancelDelete}
+                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-100"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={deleteTransaction}
+                  className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Filter Modal */}
         {filter && (
-          <div className="fixed inset-0 flex items-center justify-center bg-opacity-50">
-            <div className="bg-white p-6 rounded-lg shadow-lg w-full max-h-[100vh] flex flex-col relative">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white p-6 rounded-lg shadow-lg w-full max-h-[100vh] flex flex-col relative max-w-md">
               {/* Close Button */}
               <button
                 onClick={HandleFilterCross}
