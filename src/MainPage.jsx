@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { MdCancel } from "react-icons/md";
+import { MdCancel, MdDelete } from "react-icons/md";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { CiSearch, CiFilter } from "react-icons/ci";
@@ -23,6 +23,7 @@ function MainPage() {
   const [customerTransactions, setCustomerTransactions] = useState([]);
   const [supplier, setSupplier] = useState(false);
   const [amountFromCustomers, setAmountFromCustomers] = useState(0);
+  const [amountFromSupplier, setAmountFromSupplier] = useState(0);
 
   // Fetch customers from Firestore
   useEffect(() => {
@@ -115,6 +116,7 @@ function MainPage() {
       toast.error("Error adding customer: " + error.message);
     }
   };
+
   const HandleAddCustomerCross = () => {
     setAddCustomer(false);
     setCustomerName("");
@@ -254,6 +256,63 @@ function MainPage() {
     }
   };
 
+  const deleteTransaction = async (transactionIndex) => {
+    if (!selectedCustomer) return;
+
+    try {
+      const updatedCustomers = customers.map((customer) => {
+        if (customer.name === selectedCustomer.name) {
+          // Filter out the transaction to be deleted
+          const updatedTransactions = customer.transactions.filter(
+            (_, index) => index !== transactionIndex
+          );
+
+          // Recalculate pending amount
+          let newPendingAmount = 0;
+          updatedTransactions.forEach((transaction) => {
+            if (transaction.type === "credit") {
+              newPendingAmount += parseFloat(transaction.amount);
+            } else if (transaction.type === "debit") {
+              newPendingAmount -= parseFloat(transaction.amount);
+            }
+          });
+
+          return {
+            ...customer,
+            pendingAmount: newPendingAmount.toString(),
+            transactions: updatedTransactions,
+          };
+        }
+        return customer;
+      });
+
+      const customersDocRef = doc(db, "Customers", "allCustomers");
+      await updateDoc(customersDocRef, {
+        customers: updatedCustomers,
+      });
+
+      setCustomers(updatedCustomers);
+      setFilteredCustomers(updatedCustomers);
+
+      // Update the selected customer and transactions
+      const updatedCustomer = updatedCustomers.find(
+        (c) => c.name === selectedCustomer.name
+      );
+      setSelectedCustomer(updatedCustomer);
+      setCustomerTransactions(updatedCustomer.transactions);
+
+      toast.success("Transaction deleted successfully", {
+        position: "top-right",
+        autoClose: 3000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: false,
+      });
+    } catch (error) {
+      toast.error("Error deleting transaction: " + error.message);
+    }
+  };
+
   const HandleSearch = (e) => {
     const query = e.target.value;
     setSearchQuery(query);
@@ -358,16 +417,18 @@ function MainPage() {
         <div className="grid grid-cols-2 gap-4 mt-6 text-center">
           <div className="bg-white p-4 rounded-lg shadow">
             <h2 className="text-lg font-semibold">
-              You Have To Give It To Supplier
-            </h2>
-            <h2 className="text-xl font-bold text-red-600">1000</h2>
-          </div>
-          <div className="bg-white p-4 rounded-lg shadow">
-            <h2 className="text-lg font-semibold">
               You Will Get From The Customer
             </h2>
             <h2 className="text-xl font-bold text-green-600">
               {amountFromCustomers}
+            </h2>
+          </div>
+          <div className="bg-white p-4 rounded-lg shadow">
+            <h2 className="text-lg font-semibold">
+              You Have To Give It To Supplier
+            </h2>
+            <h2 className="text-xl font-bold text-red-600">
+              {amountFromSupplier}
             </h2>
           </div>
         </div>
@@ -438,18 +499,17 @@ function MainPage() {
                 <p className="text-gray-500">No customers found.</p>
               )}
             </div>
+
+            <div>
+              <button
+                className="fixed bottom-6 right-6 bg-blue-500 text-white px-4 py-2 rounded-full shadow-lg hover:bg-blue-600"
+                onClick={() => setAddCustomer(true)}
+              >
+                Add Customer
+              </button>
+            </div>
           </div>
         )}
-
-        {/* Add Customer Button */}
-        <div>
-          <button
-            className="fixed bottom-6 right-6 bg-blue-500 text-white px-4 py-2 rounded-full shadow-lg hover:bg-blue-600"
-            onClick={() => setAddCustomer(true)}
-          >
-            Add Customer
-          </button>
-        </div>
 
         {/* Add Customer Modal */}
         {addCustomer && (
@@ -518,16 +578,12 @@ function MainPage() {
               >
                 <MdCancel />
               </button>
-
-              {/* Customer Name and Pending Amount */}
               <h1 className="text-xl font-semibold mb-4">
                 Transactions for {selectedCustomer?.name}
               </h1>
               <p className="text-xl font-semibold mb-4">
                 Pending Amount: ₹{selectedCustomer?.pendingAmount}
               </p>
-
-              {/* Input for Credit/Debit Amount */}
               <input
                 required
                 type="number"
@@ -536,8 +592,6 @@ function MainPage() {
                 onChange={(e) => setCreditDebitAmount(e.target.value)}
                 className="w-full p-3 border rounded-lg mb-4"
               />
-
-              {/* Buttons for Credit and Debit */}
               <div className="flex space-x-4 mb-4">
                 <button
                   className="w-full bg-green-500 text-white py-2 rounded-lg text-lg hover:bg-green-600"
@@ -552,56 +606,69 @@ function MainPage() {
                   DEBIT
                 </button>
               </div>
-
-              {/* Transaction History */}
               <div className="flex-1 overflow-y-auto">
-                {/* Credit Transactions */}
-                <div className="mb-6">
-                  <h2 className="text-lg font-semibold mb-2 text-green-600">
-                    Credit Transactions
-                  </h2>
-                  <ul className="space-y-2">
-                    {customerTransactions
-                      .filter((transaction) => transaction.type === "credit")
-                      .map((transaction, index) => (
-                        <li key={index} className="border-b pb-2">
-                          <p className="font-semibold">CREDIT</p>
-                          <p className="text-gray-600">
-                            Amount: ₹{transaction.amount}
-                          </p>
-                          <p className="text-gray-600">
-                            Date: {transaction.date}
-                          </p>
-                        </li>
-                      ))}
-                  </ul>
-                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  {/* Credit Transactions Column */}
+                  <div>
+                    <h2 className="text-lg font-semibold mb-2 text-green-600">
+                      Credit Transactions
+                    </h2>
+                    <ul className="space-y-2">
+                      {customerTransactions
+                        .filter((transaction) => transaction.type === "credit")
+                        .map((transaction, index) => (
+                          <li key={index} className="border-b pb-2 relative">
+                            <button
+                              onClick={() => deleteTransaction(index)}
+                              className="absolute right-0 top-0 text-red-500 hover:text-red-700"
+                            >
+                              <MdDelete />
+                            </button>
+                            <p className="font-semibold">CREDIT</p>
+                            <p className="text-gray-600">
+                              Amount: ₹{transaction.amount}
+                            </p>
+                            <p className="text-gray-600">
+                              Date: {transaction.date}
+                            </p>
+                          </li>
+                        ))}
+                    </ul>
+                  </div>
 
-                {/* Debit Transactions */}
-                <div>
-                  <h2 className="text-lg font-semibold mb-2 text-red-600">
-                    Debit Transactions
-                  </h2>
-                  <ul className="space-y-2">
-                    {customerTransactions
-                      .filter((transaction) => transaction.type === "debit")
-                      .map((transaction, index) => (
-                        <li key={index} className="border-b pb-2">
-                          <p className="font-semibold">DEBIT</p>
-                          <p className="text-gray-600">
-                            Amount: ₹{transaction.amount}
-                          </p>
-                          <p className="text-gray-600">
-                            Date: {transaction.date}
-                          </p>
-                        </li>
-                      ))}
-                  </ul>
+                  {/* Debit Transactions Column */}
+                  <div>
+                    <h2 className="text-lg font-semibold mb-2 text-red-600">
+                      Debits Transactions
+                    </h2>
+                    <ul className="space-y-2">
+                      {customerTransactions
+                        .filter((transaction) => transaction.type === "debit")
+                        .map((transaction, index) => (
+                          <li key={index} className="border-b pb-2 relative">
+                            <button
+                              onClick={() => deleteTransaction(index)}
+                              className="absolute right-0 top-0 text-red-500 hover:text-red-700"
+                            >
+                              <MdDelete />
+                            </button>
+                            <p className="font-semibold">DEBIT</p>
+                            <p className="text-gray-600">
+                              Amount: ₹{transaction.amount}
+                            </p>
+                            <p className="text-gray-600">
+                              Date: {transaction.date}
+                            </p>
+                          </li>
+                        ))}
+                    </ul>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         )}
+
         {/* Filter Modal */}
         {filter && (
           <div className="fixed inset-0 flex items-center justify-center bg-opacity-50">
