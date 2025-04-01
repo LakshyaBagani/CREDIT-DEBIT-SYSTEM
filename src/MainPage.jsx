@@ -257,8 +257,24 @@ function MainPage() {
     }
   };
 
-  const confirmDeleteTransaction = (transactionIndex) => {
-    setTransactionToDelete(transactionIndex);
+  const confirmDeleteTransaction = (transactionIndex, transactionType) => {
+    // Find the actual index in the full transactions array
+    let actualIndex;
+    if (transactionType === "credit") {
+      const creditTransactions = customerTransactions.filter(t => t.type === "credit");
+      actualIndex = customerTransactions.findIndex((t, idx) => 
+        t.type === "credit" && 
+        creditTransactions.findIndex(ct => ct === t) === transactionIndex
+      );
+    } else {
+      const debitTransactions = customerTransactions.filter(t => t.type === "debit");
+      actualIndex = customerTransactions.findIndex((t, idx) => 
+        t.type === "debit" && 
+        debitTransactions.findIndex(dt => dt === t) === transactionIndex
+      );
+    }
+    
+    setTransactionToDelete(actualIndex);
   };
 
   const deleteTransaction = async () => {
@@ -267,10 +283,13 @@ function MainPage() {
     try {
       const updatedCustomers = customers.map((customer) => {
         if (customer.name === selectedCustomer.name) {
-          const updatedTransactions = customer.transactions.filter(
-            (_, index) => index !== transactionToDelete
-          );
+          // Create a new array without the deleted transaction
+          const updatedTransactions = [
+            ...customer.transactions.slice(0, transactionToDelete),
+            ...customer.transactions.slice(transactionToDelete + 1)
+          ];
 
+          // Recalculate the pending amount based on remaining transactions
           let newPendingAmount = 0;
           updatedTransactions.forEach((transaction) => {
             if (transaction.type === "credit") {
@@ -297,6 +316,7 @@ function MainPage() {
       setCustomers(updatedCustomers);
       setFilteredCustomers(updatedCustomers);
 
+      // Update the selected customer and transactions
       const updatedCustomer = updatedCustomers.find(
         (c) => c.name === selectedCustomer.name
       );
@@ -627,7 +647,7 @@ function MainPage() {
                         .map((transaction, index) => (
                           <li key={index} className="border-b pb-2 relative">
                             <button
-                              onClick={() => confirmDeleteTransaction(index)}
+                              onClick={() => confirmDeleteTransaction(index, "credit")}
                               className="absolute right-0 top-0 text-red-500 hover:text-red-700"
                             >
                               <MdDelete />
@@ -655,7 +675,7 @@ function MainPage() {
                         .map((transaction, index) => (
                           <li key={index} className="border-b pb-2 relative">
                             <button
-                              onClick={() => confirmDeleteTransaction(index)}
+                              onClick={() => confirmDeleteTransaction(index, "debit")}
                               className="absolute right-0 top-0 text-red-500 hover:text-red-700"
                             >
                               <MdDelete />
@@ -703,7 +723,7 @@ function MainPage() {
 
         {/* Filter Modal */}
         {filter && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="fixed inset-0  bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white p-6 rounded-lg shadow-lg w-full max-h-[100vh] flex flex-col relative max-w-md">
               {/* Close Button */}
               <button
