@@ -29,7 +29,7 @@ const FilterModal = ({
               "Satnoor",
               "Pipla",
               "Mohgaon",
-              "Pamdrakhedhi",
+              "Paadrakhedhi",
             ].map((place) => (
               <label
                 key={place}

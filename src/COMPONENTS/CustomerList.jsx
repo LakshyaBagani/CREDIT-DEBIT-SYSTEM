@@ -1,5 +1,7 @@
 import React from "react";
-import { MdDelete } from "react-icons/md";
+import { MdDelete, MdEdit } from "react-icons/md";
+import { doc, getDoc } from "firebase/firestore";
+import { db } from "../Database";
 
 const CustomerList = ({
   filteredCustomers,
@@ -9,6 +11,7 @@ const CustomerList = ({
   setSelectedCustomer,
   setCustomerTransactions,
   setShowTransactions,
+  setEditCustomer,
 }) => {
   return (
     <div className="mt-6">
@@ -23,23 +26,36 @@ const CustomerList = ({
               ? filteredCustomers
               : customers
             ).map((customer, index) => (
-              <li
-                key={index}
-                className="border-b pb-2 cursor-pointer"
-                onClick={async () => {
-                  setSelectedCustomer(customer);
-                  const transactions = await fetchCustomerTransactions(
-                    customer.name
-                  );
-                  setCustomerTransactions(transactions);
-                  setShowTransactions(true);
-                }}
-              >
-                <p className="font-semibold">Customer : {customer.name}</p>
-                <p className="text-gray-600">Address : {customer.address}</p>
-                <p className="text-red-600">
-                  Pending: ₹{customer.pendingAmount}
-                </p>
+              <li key={index} className="border-b pb-2">
+                <div className="flex justify-between items-start">
+                  <div 
+                    className="flex-1 cursor-pointer"
+                    onClick={async () => {
+                      setSelectedCustomer(customer);
+                      const transactions = await fetchCustomerTransactions(
+                        customer.name
+                      );
+                      setCustomerTransactions(transactions);
+                      setShowTransactions(true);
+                    }}
+                  >
+                    <p className="font-semibold">Customer : {customer.name}</p>
+                    <p className="text-gray-600">Address : {customer.address}</p>
+                    <p className="text-red-600">
+                      Pending: ₹{customer.pendingAmount}
+                    </p>
+                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEditCustomer(customer);
+                    }}
+                    className="text-blue-500 hover:text-blue-700 ml-2"
+                    title="Edit address"
+                  >
+                    <MdEdit size={20} />
+                  </button>
+                </div>
               </li>
             ))}
           </ul>

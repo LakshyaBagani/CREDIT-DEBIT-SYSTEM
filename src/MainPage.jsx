@@ -9,11 +9,9 @@ import AddCustomerModal from "./COMPONENTS/AddCustomerModal";
 import TransactionsModal from "./COMPONENTS/TransactionsModal";
 import DeleteConfirmationModal from "./COMPONENTS/DeleteConfirmationModal";
 import FilterModal from "./COMPONENTS/FilterModal";
-
+import EditCustomerModal from "./COMPONENTS/EditCustomerModal";
 
 function MainPage() {
- 
-  
   const [addCustomer, setAddCustomer] = useState(false);
   const [customerName, setCustomerName] = useState("");
   const [customerAddress, setCustomerAddress] = useState("");
@@ -32,8 +30,8 @@ function MainPage() {
   const [amountFromCustomers, setAmountFromCustomers] = useState(0);
   const [amountFromSupplier, setAmountFromSupplier] = useState(0);
   const [transactionToDelete, setTransactionToDelete] = useState(null);
+  const [editCustomer, setEditCustomer] = useState(null);
 
- 
   useEffect(() => {
     const fetchCustomers = async () => {
       try {
@@ -65,6 +63,8 @@ function MainPage() {
     setAmountFromCustomers(totalPendingAmount);
   }, [customers]);
 
+
+  
   const HandleAddCustomers = async (e) => {
     e.preventDefault();
     setAddCustomer(false);
@@ -124,14 +124,12 @@ function MainPage() {
     }
   };
 
-
   const HandleAddCustomerCross = () => {
     setAddCustomer(false);
     setCustomerName("");
     setCustomerAddress("");
     setCustomerPendingAmount("");
   };
-
 
   const HandleCredit = async (e) => {
     e.preventDefault();
@@ -193,7 +191,6 @@ function MainPage() {
     }
   };
 
-
   const HandleDebit = async (e) => {
     e.preventDefault();
     setShowTransactions(false);
@@ -254,23 +251,28 @@ function MainPage() {
     }
   };
 
-
   const confirmDeleteTransaction = (transactionIndex, transactionType) => {
     let actualIndex;
     if (transactionType === "credit") {
-      const creditTransactions = customerTransactions.filter(t => t.type === "credit");
-      actualIndex = customerTransactions.findIndex((t, idx) => 
-        t.type === "credit" && 
-        creditTransactions.findIndex(ct => ct === t) === transactionIndex
+      const creditTransactions = customerTransactions.filter(
+        (t) => t.type === "credit"
+      );
+      actualIndex = customerTransactions.findIndex(
+        (t, idx) =>
+          t.type === "credit" &&
+          creditTransactions.findIndex((ct) => ct === t) === transactionIndex
       );
     } else {
-      const debitTransactions = customerTransactions.filter(t => t.type === "debit");
-      actualIndex = customerTransactions.findIndex((t, idx) => 
-        t.type === "debit" && 
-        debitTransactions.findIndex(dt => dt === t) === transactionIndex
+      const debitTransactions = customerTransactions.filter(
+        (t) => t.type === "debit"
+      );
+      actualIndex = customerTransactions.findIndex(
+        (t, idx) =>
+          t.type === "debit" &&
+          debitTransactions.findIndex((dt) => dt === t) === transactionIndex
       );
     }
-    
+
     setTransactionToDelete(actualIndex);
   };
 
@@ -283,7 +285,7 @@ function MainPage() {
           // Create a new array without the deleted transaction
           const updatedTransactions = [
             ...customer.transactions.slice(0, transactionToDelete),
-            ...customer.transactions.slice(transactionToDelete + 1)
+            ...customer.transactions.slice(transactionToDelete + 1),
           ];
 
           // Recalculate the pending amount based on remaining transactions
@@ -334,7 +336,6 @@ function MainPage() {
     }
   };
 
-
   const cancelDelete = () => {
     setTransactionToDelete(null);
   };
@@ -355,7 +356,6 @@ function MainPage() {
     }
     setFilteredCustomers(filtered);
   };
-
 
   const HandleFilterFunction = (e) => {
     e.preventDefault();
@@ -394,7 +394,6 @@ function MainPage() {
     }
     setFilter(false);
   };
-
 
   const HandleFilterCross = () => {
     setFilter(false);
@@ -481,7 +480,7 @@ function MainPage() {
           </div>
         </div>
 
-        {/* Customer List */}
+        
         {!supplier && (
           <>
             <CustomerList
@@ -492,6 +491,7 @@ function MainPage() {
               setSelectedCustomer={setSelectedCustomer}
               setCustomerTransactions={setCustomerTransactions}
               setShowTransactions={setShowTransactions}
+              setEditCustomer={setEditCustomer}
             />
 
             <div>
@@ -542,6 +542,14 @@ function MainPage() {
           selectedOption={selectedOption}
           setSelectedOption={setSelectedOption}
           HandleFilterFunction={HandleFilterFunction}
+        />
+
+        <EditCustomerModal
+          editCustomer={editCustomer}
+          setEditCustomer={setEditCustomer}
+          customers={customers}
+          setCustomers={setCustomers}
+          setFilteredCustomers={setFilteredCustomers}
         />
       </div>
     </div>
