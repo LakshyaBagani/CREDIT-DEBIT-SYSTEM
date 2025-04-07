@@ -1,12 +1,19 @@
 import React, { useState, useEffect } from "react";
-import { MdCancel, MdDelete } from "react-icons/md";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { CiSearch, CiFilter } from "react-icons/ci";
 import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
 import { db } from "./Database";
+import CustomerList from "./COMPONENTS/CustomerList";
+import AddCustomerModal from "./COMPONENTS/AddCustomerModal";
+import TransactionsModal from "./COMPONENTS/TransactionsModal";
+import DeleteConfirmationModal from "./COMPONENTS/DeleteConfirmationModal";
+import FilterModal from "./COMPONENTS/FilterModal";
+
 
 function MainPage() {
+ 
+  
   const [addCustomer, setAddCustomer] = useState(false);
   const [customerName, setCustomerName] = useState("");
   const [customerAddress, setCustomerAddress] = useState("");
@@ -26,7 +33,7 @@ function MainPage() {
   const [amountFromSupplier, setAmountFromSupplier] = useState(0);
   const [transactionToDelete, setTransactionToDelete] = useState(null);
 
-  // Fetch customers from Firestore
+ 
   useEffect(() => {
     const fetchCustomers = async () => {
       try {
@@ -51,7 +58,6 @@ function MainPage() {
     fetchCustomers();
   }, []);
 
-  // Calculate total pending amount whenever customers change
   useEffect(() => {
     const totalPendingAmount = customers.reduce((sum, customer) => {
       return sum + parseFloat(customer.pendingAmount || 0);
@@ -118,6 +124,7 @@ function MainPage() {
     }
   };
 
+
   const HandleAddCustomerCross = () => {
     setAddCustomer(false);
     setCustomerName("");
@@ -125,17 +132,6 @@ function MainPage() {
     setCustomerPendingAmount("");
   };
 
-  const fetchCustomerTransactions = async (customerName) => {
-    const customersDocRef = doc(db, "Customers", "allCustomers");
-    const docSnap = await getDoc(customersDocRef);
-
-    if (docSnap.exists()) {
-      const customers = docSnap.data().customers;
-      const customer = customers.find((c) => c.name === customerName);
-      return customer ? customer.transactions : [];
-    }
-    return [];
-  };
 
   const HandleCredit = async (e) => {
     e.preventDefault();
@@ -197,6 +193,7 @@ function MainPage() {
     }
   };
 
+
   const HandleDebit = async (e) => {
     e.preventDefault();
     setShowTransactions(false);
@@ -257,8 +254,8 @@ function MainPage() {
     }
   };
 
+
   const confirmDeleteTransaction = (transactionIndex, transactionType) => {
-    // Find the actual index in the full transactions array
     let actualIndex;
     if (transactionType === "credit") {
       const creditTransactions = customerTransactions.filter(t => t.type === "credit");
@@ -337,6 +334,7 @@ function MainPage() {
     }
   };
 
+
   const cancelDelete = () => {
     setTransactionToDelete(null);
   };
@@ -357,6 +355,7 @@ function MainPage() {
     }
     setFilteredCustomers(filtered);
   };
+
 
   const HandleFilterFunction = (e) => {
     e.preventDefault();
@@ -395,6 +394,7 @@ function MainPage() {
     }
     setFilter(false);
   };
+
 
   const HandleFilterCross = () => {
     setFilter(false);
@@ -483,50 +483,16 @@ function MainPage() {
 
         {/* Customer List */}
         {!supplier && (
-          <div className="mt-6">
-            <h2 className="text-xl font-semibold mb-2">Customer List</h2>
-            <div className="bg-white p-4 rounded-lg shadow">
-              {(filteredCustomers.length > 0 ||
-              searchQuery ||
-              selectedOption.length > 0
-                ? filteredCustomers
-                : customers
-              ).length > 0 ? (
-                <ul className="space-y-2">
-                  {(filteredCustomers.length > 0 ||
-                  searchQuery ||
-                  selectedOption.length > 0
-                    ? filteredCustomers
-                    : customers
-                  ).map((customer, index) => (
-                    <li
-                      key={index}
-                      className="border-b pb-2 cursor-pointer"
-                      onClick={async () => {
-                        setSelectedCustomer(customer);
-                        const transactions = await fetchCustomerTransactions(
-                          customer.name
-                        );
-                        setCustomerTransactions(transactions);
-                        setShowTransactions(true);
-                      }}
-                    >
-                      <p className="font-semibold">
-                        Customer : {customer.name}
-                      </p>
-                      <p className="text-gray-600">
-                        Address : {customer.address}
-                      </p>
-                      <p className="text-red-600">
-                        Pending: ₹{customer.pendingAmount}
-                      </p>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-gray-500">No customers found.</p>
-              )}
-            </div>
+          <>
+            <CustomerList
+              filteredCustomers={filteredCustomers}
+              customers={customers}
+              searchQuery={searchQuery}
+              selectedOption={selectedOption}
+              setSelectedCustomer={setSelectedCustomer}
+              setCustomerTransactions={setCustomerTransactions}
+              setShowTransactions={setShowTransactions}
+            />
 
             <div>
               <button
@@ -536,253 +502,47 @@ function MainPage() {
                 Add Customer
               </button>
             </div>
-          </div>
+          </>
         )}
 
-        {/* Add Customer Modal */}
-        {addCustomer && (
-          <div className="fixed inset-0  bg-opacity-50 flex justify-center items-center z-50">
-            <form
-              onSubmit={HandleAddCustomers}
-              className="bg-white w-[400px] p-8 rounded-xl shadow-2xl relative"
-            >
-              <button
-                className="absolute top-4 right-4 text-3xl text-gray-600 hover:text-gray-800"
-                onClick={HandleAddCustomerCross}
-                type="button"
-              >
-                <MdCancel />
-              </button>
-              <h1 className="text-xl font-semibold mb-4">Customer Name</h1>
-              <input
-                required
-                type="text"
-                placeholder="Enter customer name"
-                value={customerName}
-                onChange={(e) => setCustomerName(e.target.value)}
-                className="w-full p-3 border rounded-lg"
-              />
-              <h2 className="text-xl font-semibold mt-4 mb-2">
-                Customer Address
-              </h2>
-              <input
-                required
-                type="text"
-                placeholder="Enter customer address"
-                value={customerAddress}
-                onChange={(e) => setCustomerAddress(e.target.value)}
-                className="w-full p-3 border rounded-lg"
-              />
-              <h2 className="text-xl font-semibold mt-4 mb-2">
-                Pending amount
-              </h2>
-              <input
-                required
-                type="number"
-                placeholder="Enter customer pending amount"
-                value={customerPendingAmount}
-                onChange={(e) => setCustomerPendingAmount(e.target.value)}
-                className="w-full p-3 border rounded-lg"
-              />
-              <button
-                type="submit"
-                className="w-full bg-blue-500 text-white py-3 mt-6 rounded-lg text-lg hover:bg-blue-600"
-              >
-                Add Customer
-              </button>
-            </form>
-          </div>
-        )}
+        {/* Modals */}
+        <AddCustomerModal
+          addCustomer={addCustomer}
+          HandleAddCustomerCross={HandleAddCustomerCross}
+          HandleAddCustomers={HandleAddCustomers}
+          customerName={customerName}
+          setCustomerName={setCustomerName}
+          customerAddress={customerAddress}
+          setCustomerAddress={setCustomerAddress}
+          customerPendingAmount={customerPendingAmount}
+          setCustomerPendingAmount={setCustomerPendingAmount}
+        />
 
-        {/* Transactions Modal */}
-        {showTransactions && (
-          <div className="fixed inset-0  bg-opacity-50 flex justify-center items-center z-50">
-            <div className="bg-white w-[400px] h-[100vh] p-8 rounded-xl shadow-2xl relative flex flex-col">
-              {/* Close Button */}
-              <button
-                className="absolute top-4 right-4 text-3xl text-gray-600 hover:text-gray-800"
-                onClick={() => setShowTransactions(false)}
-                type="button"
-              >
-                <MdCancel />
-              </button>
-              <h1 className="text-xl font-semibold mb-4">
-                Transactions for {selectedCustomer?.name}
-              </h1>
-              <p className="text-xl font-semibold mb-4">
-                Pending Amount: ₹{selectedCustomer?.pendingAmount}
-              </p>
-              <input
-                required
-                type="number"
-                placeholder="Enter amount"
-                value={creditDebitAmount}
-                onChange={(e) => setCreditDebitAmount(e.target.value)}
-                className="w-full p-3 border rounded-lg mb-4"
-              />
-              <div className="flex space-x-4 mb-4">
-                <button
-                  className="w-full bg-green-500 text-white py-2 rounded-lg text-lg hover:bg-green-600"
-                  onClick={HandleCredit}
-                >
-                  CREDIT
-                </button>
-                <button
-                  className="w-full bg-red-500 text-white py-2 rounded-lg text-lg hover:bg-red-600"
-                  onClick={HandleDebit}
-                >
-                  DEBIT
-                </button>
-              </div>
-              <div className="flex-1 overflow-y-auto">
-                <div className="grid grid-cols-2 gap-4">
-                  {/* Credit Transactions Column */}
-                  <div>
-                    <h2 className="text-lg font-semibold mb-2 text-green-600">
-                      Credit Transactions
-                    </h2>
-                    <ul className="space-y-2">
-                      {customerTransactions
-                        .filter((transaction) => transaction.type === "credit")
-                        .map((transaction, index) => (
-                          <li key={index} className="border-b pb-2 relative">
-                            <button
-                              onClick={() => confirmDeleteTransaction(index, "credit")}
-                              className="absolute right-0 top-0 text-red-500 hover:text-red-700"
-                            >
-                              <MdDelete />
-                            </button>
-                            <p className="font-semibold">CREDIT</p>
-                            <p className="text-gray-600">
-                              Amount: ₹{transaction.amount}
-                            </p>
-                            <p className="text-gray-600">
-                              Date: {transaction.date}
-                            </p>
-                          </li>
-                        ))}
-                    </ul>
-                  </div>
+        <TransactionsModal
+          showTransactions={showTransactions}
+          setShowTransactions={setShowTransactions}
+          selectedCustomer={selectedCustomer}
+          creditDebitAmount={creditDebitAmount}
+          setCreditDebitAmount={setCreditDebitAmount}
+          HandleCredit={HandleCredit}
+          HandleDebit={HandleDebit}
+          customerTransactions={customerTransactions}
+          confirmDeleteTransaction={confirmDeleteTransaction}
+        />
 
-                  {/* Debit Transactions Column */}
-                  <div>
-                    <h2 className="text-lg font-semibold mb-2 text-red-600">
-                      Debit Transactions
-                    </h2>
-                    <ul className="space-y-2">
-                      {customerTransactions
-                        .filter((transaction) => transaction.type === "debit")
-                        .map((transaction, index) => (
-                          <li key={index} className="border-b pb-2 relative">
-                            <button
-                              onClick={() => confirmDeleteTransaction(index, "debit")}
-                              className="absolute right-0 top-0 text-red-500 hover:text-red-700"
-                            >
-                              <MdDelete />
-                            </button>
-                            <p className="font-semibold">DEBIT</p>
-                            <p className="text-gray-600">
-                              Amount: ₹{transaction.amount}
-                            </p>
-                            <p className="text-gray-600">
-                              Date: {transaction.date}
-                            </p>
-                          </li>
-                        ))}
-                    </ul>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+        <DeleteConfirmationModal
+          transactionToDelete={transactionToDelete}
+          cancelDelete={cancelDelete}
+          deleteTransaction={deleteTransaction}
+        />
 
-        {/* Delete Confirmation Modal */}
-        {transactionToDelete !== null && (
-          <div className="fixed inset-0  bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white p-6 rounded-lg shadow-lg max-w-sm w-full">
-              <h2 className="text-xl font-semibold mb-4">Confirm Deletion</h2>
-              <p className="mb-6">Are you sure you want to delete this transaction?</p>
-              <div className="flex justify-end space-x-4">
-                <button
-                  onClick={cancelDelete}
-                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-100"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={deleteTransaction}
-                  className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
-                >
-                  Delete
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Filter Modal */}
-        {filter && (
-          <div className="fixed inset-0  bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white p-6 rounded-lg shadow-lg w-full max-h-[100vh] flex flex-col relative max-w-md">
-              {/* Close Button */}
-              <button
-                onClick={HandleFilterCross}
-                className="absolute top-4 right-4 text-gray-600 hover:text-gray-800 text-xl"
-              >
-                <MdCancel />
-              </button>
-
-              {/* Modal Title */}
-              <h2 className="text-2xl font-semibold mb-4">
-                Filter by Location
-              </h2>
-              <div className="flex-1 overflow-y-auto mb-4">
-                <div className="flex flex-col space-y-1">
-                  {[
-                    "Sausar",
-                    "Boargaon",
-                    "Lodhikheda",
-                    "Satnoor",
-                    "Pipla",
-                    "Mohgaon",
-                    "Pamdrakhedhi",
-                  ].map((place) => (
-                    <label
-                      key={place}
-                      className="flex items-center space-x-2 cursor-pointer p-1 rounded-lg hover:bg-gray-100"
-                    >
-                      <input
-                        type="checkbox"
-                        value={place}
-                        checked={selectedOption.includes(place)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedOption([...selectedOption, place]);
-                          } else {
-                            setSelectedOption(
-                              selectedOption.filter((opt) => opt !== place)
-                            );
-                          }
-                        }}
-                        className="accent-blue-500"
-                      />
-                      <span className="text-lg text-gray-700">{place}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              {/* Apply Button */}
-              <button
-                onClick={HandleFilterFunction}
-                className="w-full bg-blue-500 text-white py-2 rounded-lg text-lg hover:bg-blue-600"
-              >
-                Apply
-              </button>
-            </div>
-          </div>
-        )}
+        <FilterModal
+          filter={filter}
+          HandleFilterCross={HandleFilterCross}
+          selectedOption={selectedOption}
+          setSelectedOption={setSelectedOption}
+          HandleFilterFunction={HandleFilterFunction}
+        />
       </div>
     </div>
   );
