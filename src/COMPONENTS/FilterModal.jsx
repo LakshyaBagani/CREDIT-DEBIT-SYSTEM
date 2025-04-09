@@ -24,8 +24,8 @@ const FilterModal = ({
           <div className="flex flex-col space-y-1">
             {[
               "Sausar",
-              "Boargaon",
-              "Lodhikheda",
+              "Borgaon",
+              "LodhiKheda",
               "Satnoor",
               "Pipla",
               "Mohgaon",
